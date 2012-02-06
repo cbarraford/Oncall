@@ -3,7 +3,10 @@ Oncall is a open source paging solution for system administrators to augment the
 Key features
  * alerting via SMS and telephone
  * can be used with any existing monitoring solution
- * automatic escalation of alerts
+ * automatic escalation of alerts (up to 8 levels of escalation)
+ * create teams which are completely separate from each other (alerts, twilio billing, phone numbers, more)
+ * A single phone number to connect with the person on call
+ * highly customizable to fit your alerting and escalation needs
 
 Denpencies
  * web.py (http://webpy.org/)
