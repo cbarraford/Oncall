@@ -1,4 +1,9 @@
-Oncall is paging solution for system administrators to augment their IT monitoring tools.
+Oncall is a open source paging solution for system administrators to augment their IT monitoring tools. Introduce telecom technologies like SMS and voice to keep people who are "on call" in your it organization informed of network, systems (and anything else you can think of) in real time no matter where they are.
+
+Key features
+ * alerting via SMS and telephone
+ * can be used with any existing monitoring solution
+ * automatic escalation of alerts
 
 Denpencies
  * web.py (http://webpy.org/)
@@ -7,12 +12,12 @@ Denpencies
  * Simplejson (http://pypi.python.org/pypi/simplejson/)
 
 Important Notes
- * The server you run Oncall on and the mysql server must be in the same timezone
- * This software does require the usage of Twilio (www.twilio.com). So you must have a Twilo account.
- * Your Oncall server must be publically facing so twilio's servers can make http calls
+ * The server you run Oncall on and the mysql server must be in the same timezone (for now)
+ * This software does require the usage of Twilio (www.twilio.com). So you must setup a Twilo account.
+ * Your Oncall server must be publically facing so twilio's servers can make http calls to it
  
 States explained
-Each user has a "state" (between 0 to 9). This state describes the state of their account.
+Each user has a "state" (between 0 to 9). This state describes if they are on call, or not. If they are the primary oncall person, secondary, etc.
  0 = off call
  1 = on call, primary
  2 = on call, secondary
@@ -20,11 +25,4 @@ Each user has a "state" (between 0 to 9). This state describes the state of thei
  9 = team, for team alerting.
  
 DISCLAIMER
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR 
-IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND 
-FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR 
-CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL 
-DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, 
-DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER 
-IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT 
-OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
