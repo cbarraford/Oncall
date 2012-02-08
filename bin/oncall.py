@@ -60,12 +60,12 @@ def user_create(opts):
 	try:
 		if opts.name == '': return "User name is not set (-n)"
 		if opts.email == '': return "User email is not set (-e)"
-		if opts.phone == '': return "User phone is not set (-p)"
+		if opts.phone == '' and opts.state != 9: return "User phone is not set (-p)"
 		if "@" not in opts.email or "." not in opts.email: return "Invalid email address, try again"
-		if opts.phone.startswith("+") and len(opts.phone) == 12:
+		if (opts.phone.startswith("+") and len(opts.phone) == 12):
 			pass
 		else:
-			return "Invalid phone number format. Must be like '+12225558888' (no quotes)"
+			if opts.state != 9: return "Invalid phone number format. Must be like '+12225558888' (no quotes)"
 		if opts.team == '':	opts.team = "default"
 		if opts.state == 100: opts.state = 0
 		newuser = User.User()
@@ -76,17 +76,20 @@ def user_create(opts):
 		if opts.state != 100: newuser.state = opts.state
 		newuser.save_user()
 		# validate the phone number with twilio
-		valid_code = twilio.validate_phone(newuser)
-		if valid_code == False:
-			logging.error("Unable to get a validation code for new phone number")
-			return newuser.print_user() + "\nUnable to get a validation code. Please verify new phone number through Twilio website"
-		elif valid_code == True:
-			return newuser.print_user() + "\nPhone has already been verified with Twilio"
+		if opts.state != 9:
+			valid_code = twilio.validate_phone(newuser)
+			if valid_code == False:
+				logging.error("Unable to get a validation code for new phone number")
+				return newuser.print_user() + "\nUnable to get a validation code. Please verify new phone number through Twilio website"
+			elif valid_code == True:
+				return newuser.print_user() + "\nPhone has already been verified with Twilio"
+			else:
+				return newuser.print_user() + "\nValidation Code: %s" % (valid_code)
 		else:
-			return newuser.print_user() + "\nValidation Code: %s" % (valid_code) 
+			return newuser.print_user()
 	except Exception, e:
 		logging.error("Failed to create new user: %s" % (e))
-		return "Failed to create user"
+		return "Failed to create user: %s" % (e.__str__())
 		
 def user_list(opts):
 	'''
@@ -173,7 +176,7 @@ def alert_create(opts):
 		newalert.save_alert()
 		return newalert.print_alert()
 	except Exception, e:
-		return "Failed to create alert"
+		return "Failed to create alert: %s" % (e.__str__())
 
 def alert_status(opts):
 	'''
