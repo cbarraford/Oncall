@@ -25,8 +25,8 @@ def auth(user):
 		elif conf['twilio_acct']['default'] and conf['twilio_token']['default']:
 			return TwilioRestClient(conf['twilio_acct']['default'], conf['twilio_token']['default'])
 		else:
-			logging.error("Cannot find valid twilio account and/or token. Check your conf file is setup correctly.")
-			sys.exit(1)
+			logging.error("Cannot find valid twilio account and/or token associated with %s. Check your conf file is setup correctly." % user.team)
+			return False
 	return False
 
 def twil_phone_num(user):
@@ -42,8 +42,8 @@ def twil_phone_num(user):
 		elif conf['twilio_number']['default']:
 			return conf['twilio_number']['default']
 		else:
-			print "cannot find valid twilio phone number"
-			sys.exit(1)
+			logging.error("Cannot find valid twilio phone number associated with %s. Check your conf file is setup correctly." % user.name)
+			return False
 	return False
 
 def twil_reverse_phone_num(phonenum):
