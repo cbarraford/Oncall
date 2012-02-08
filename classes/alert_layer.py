@@ -149,14 +149,14 @@ class Alert():
 			logging.error(e.__str__())
 			return False
 	
-	def send_alert(self, team='default'):
+	def send_alert(self):
 		'''
 		This method sends alerts to people who need to get one via sms, phone, or email.
 		'''
 		logging.debug("Sending alert: %s" % self.id)
 		try:
-			oncall_users_raw = User.on_call(team)
-			team_users = User.team_entities(team)
+			oncall_users_raw = User.on_call(self.team)
+			team_users = User.team_entities(self.team)
 			if len(oncall_users_raw) > 0:
 				oncall_users = []
 				self.tries += 1
