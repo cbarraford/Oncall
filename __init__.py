@@ -8,6 +8,6 @@ import urllib
 import urllib2
 import web
 
-from twilio.rest import TwilioRestClient
-from twilio import twiml
-from optparse import OptionParser
+#from twilio.rest import TwilioRestClient
+#from twilio import twiml
+#from optparse import OptionParser

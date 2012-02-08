@@ -1,23 +1,16 @@
 #!/usr/bin/env python
 
-import os, sys, logging
+import logging
 import MySQLdb
 import datetime
 
-# add this file location to sys.path
-cmd_folder = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if cmd_folder not in sys.path:
-     sys.path.insert(0, cmd_folder)
-     sys.path.insert(0, cmd_folder + "/classes")
+import util_layer as Util
 
-# load configuration settings (dict conf)
-from config import *
-
-logging.basicConfig(format='%(asctime)s - %(levelname)s: %(message)s', filename=conf['logdir'] + '/server.log',level=logging.DEBUG, datefmt='%m/%d/%Y %I:%M:%S %p')
+conf = Util.load_conf()
 
 def alerts_convert_to_dict(v):
 	'''
-	convert results to dict for easy reading
+	Convert results to dict for easy reading/parsing.
 	'''
 	logging.debug(v)
 	return { 'id':v[0], 'createDate':v[1], 'subject':v[2], 'message':v[3], 'team':v[4], 'ack':v[5], 'ackby':v[6], 'acktime':v[7], 'lastAlertSent':v[8], 'tries':v[9] }
@@ -25,19 +18,22 @@ def alerts_convert_to_dict(v):
 	
 def users_convert_to_dict(v):
 	'''
-	convert results to dict for easy reading
+	Convert results to dict for easy reading/parsing.
 	'''
 	logging.debug(v)
 	return { 'id':v[0], 'createDate':v[1], 'name':v[2], 'email':v[3], 'phone':v[4], 'team':v[5], 'state':v[6], 'lastAlert':v[7] }
 
 class Database:
 	def __init__(self):
+		'''
+		Initialize the db.
+		'''
 		logging.debug("Initializing db")
 		self.connectDB()
 
 	def connectDB(self):
 		'''
-		Connect to the db
+		Connect to the db.
 		'''
 		logging.debug("Connecting to db at %s on port %s, as %s" % (conf['mysql_host'], conf['mysql_port'], conf['mysql_username']))
 		try:
@@ -59,14 +55,14 @@ class Database:
 	
 	def save(self):
 		'''
-		save the changes to the db
+		Save the changes to the db.
 		'''
 		logging.debug("saving changing to the db")
 		self._connection.commit()
 	
 	def close(self):
 		'''
-		close the connection to the database
+		Close the connection to the database.
 		'''
 		logging.debug("closing connection to the db")
 		self._connection.close ()

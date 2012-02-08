@@ -8,6 +8,10 @@ Key features
  * A single phone number to connect with the person on call
  * highly customizable to fit your alerting and escalation needs
 
+Documentation
+documentation is available on the github wiki.
+https://github.com/CBarraford/Oncall/wiki
+
 Denpencies
  * web.py (http://webpy.org/)
  * twilio-python (https://github.com/twilio/twilio-python)
@@ -25,6 +29,7 @@ Each user has a "state" (between 0 to 9). This state describes if they are on ca
  1 = on call, primary
  2 = on call, secondary
  n = on call, nth
+ 8 = on call, eighth
  9 = team, for team alerting.
  
 DISCLAIMER

@@ -1,26 +1,30 @@
 #!/usr/bin/env python
 
-import os, sys, logging
+import os
+import sys
+import logging
 from optparse import OptionParser
 
 # add this file location to sys.path
 cmd_folder = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if cmd_folder not in sys.path:
-     sys.path.insert(0, cmd_folder)
-     sys.path.insert(0, cmd_folder + "/classes")
+     sys.path.insert(-1, cmd_folder)
+     sys.path.insert(-1, cmd_folder + "/classes")
 
 import mysql_layer as mysql
 import twilio_layer as twilio
-import user as User
-import alert as Alert
-# load configuration settings (dict conf)
-from config import *
+import user_layer as User
+import alert_layer as Alert
+import util_layer as Util
 
-logging.basicConfig(format='%(asctime)s - %(levelname)s: %(message)s', filename=conf['logdir'] + '/client.log',level=logging.DEBUG, datefmt='%m/%d/%Y %I:%M:%S %p')
+conf = Util.load_conf()
 
-#twilio.make_call(User.User(2), "http://ec2-107-20-110-174.compute-1.amazonaws.com:8008/call/event?init=True&alert_id=%s" % (alert.id))
+Util.init_logging("client")
 
 def user():
+	'''
+	This function handles the rest of the command as it pertains to a user(s).
+	'''
 	# Parse the command line
 	parser = OptionParser()
 	parser.add_option('-i', '--id', dest='id', help='User id', type='int', default=0)
@@ -40,46 +44,30 @@ oncall.py user list (options)
 oncall.py user edit -i <id> (options)
 	'''
 
-	if (len(sys.argv) > 2):
+	if (len(sys.argv) > 2) and sys.argv[2] in ['create', 'list', 'edit']:
 		mode = sys.argv[2]
-		if mode in ['create', 'list', 'edit']:
-			if mode == "create": o = user_create(opts)
-			if mode == "list": o = user_list(opts)
-			if mode == "edit": o = user_edit(opts)
-			return o
-		else:
-			print user_usage
-			sys.exit(1)
+		if mode == "create": o = user_create(opts)
+		if mode == "list": o = user_list(opts)
+		if mode == "edit": o = user_edit(opts)
+		return o
 	else:
-		print user_usage
-		sys.exit(1)
+		return user_usage
 
 def user_create(opts):
 	'''
-	Create a new user
+	Create a new user in the db.
 	'''
 	try:
-		if opts.name == '':
-			print "User name is not set (-n)"
-			sys.exit(1)
-		if opts.email == '':
-			print "User email is not set (-e)"
-			sys.exit(1)
-		if opts.phone == '':
-			print "User phone is not set (-p)"
-			sys.exit(1)
-		if "@" not in opts.email or "." not in opts.email:
-			print "Invalid email address, try again"
-			sys.exit(1)
+		if opts.name == '': return "User name is not set (-n)"
+		if opts.email == '': return "User email is not set (-e)"
+		if opts.phone == '': return "User phone is not set (-p)"
+		if "@" not in opts.email or "." not in opts.email: return "Invalid email address, try again"
 		if opts.phone.startswith("+") and len(opts.phone) == 12:
 			pass
 		else:
-			print "Invalid phone number format. Must be like '+12225558888' (no quotes)"
-			sys.exit(1)
-		if opts.team == '':
-			opts.team = "default"
-		if opts.state == 100:
-			opts.state = 0
+			return "Invalid phone number format. Must be like '+12225558888' (no quotes)"
+		if opts.team == '':	opts.team = "default"
+		if opts.state == 100: opts.state = 0
 		newuser = User.User()
 		newuser.name = opts.name
 		newuser.email = opts.email
@@ -87,6 +75,7 @@ def user_create(opts):
 		if opts.team != '': newuser.team = opts.team
 		if opts.state != 100: newuser.state = opts.state
 		newuser.save_user()
+		# validate the phone number with twilio
 		valid_code = twilio.validate_phone(newuser)
 		if valid_code == False:
 			logging.error("Unable to get a validation code for new phone number")
@@ -105,50 +94,17 @@ def user_list(opts):
 	'''
 	all_users = User.all_users()
 	users = []
+	# init these variables with value True
+	(id, name, phone, email, team, state) = [True] * 6
 	# filter users with options given
 	for u in all_users:
-		if opts.id != 0:
-			if u.id == opts.id:
-				id = True
-			else:
-				id = False
-		else:
-			id = True
-		if opts.name != '':
-			if u.name == opts.name:
-				name = True
-			else:
-				name = False
-		else:
-			name = True
-		if opts.phone != '':
-			if u.phone == opts.phone:
-				phone = True
-			else:
-				phone = False
-		else:
-			phone = True
-		if opts.email != '':
-			if u.email == opts.email:
-				email = True
-			else:
-				email = False
-		else:
-			email = True
-		if opts.team != '':
-			if u.team == opts.team:
-				team = True
-			else:
-				team = False
-		else:
-			team = True
-		if opts.state != 100:
-			if u.state == opts.state:
-				state = True
-			else:
-				state = False
-		else:
-			state = True
+		if opts.id != 0 and u.id != opts.id: id = False
+		if opts.name != '' and u.name != opts.name: name = False
+		if opts.phone != '' and u.phone != opts.phone: phone = False
+		if opts.email != '' and u.email != opts.email: email = False
+		if opts.team != '' and u.team != opts.team: team = False
+		if opts.state != 100 and u.state != opts.state: state = False
+		# see if all values given match attributes for user object
 		if id == True and name == True and phone == True and email == True and team == True and state == True: users.append(u)
 	if len(users) == 0: return "No users."
 	if opts.delete == True:
@@ -162,26 +118,22 @@ def user_list(opts):
 
 def user_edit(opts):
 	'''
-	Making changes to a user account with options inputted
+	Making changes to a user account with options inputted.
 	'''
-	if opts.id == '' or opts.id == 0:
-		print "User id is not set (-i)"
-		sys.exit(1)
+	if opts.id == '' or opts.id == 0: return "User id is not set (-i)"
 	user = User.User(opts.id)
-	if opts.name != '':
-		user.name = opts.name
-	if opts.phone != '':
-		user.phone = opts.phone
-	if opts.email != '':
-		user.email = opts.email
-	if opts.team != '':
-		user.team = opts.team
-	if opts.state != '' and opts.state != 100:
-		user.state = opts.state
+	if opts.name != '': user.name = opts.name
+	if opts.phone != '': user.phone = opts.phone
+	if opts.email != '': user.email = opts.email
+	if opts.team != '':	user.team = opts.team
+	if opts.state != '' and opts.state != 100: user.state = opts.state
 	user.save_user()
 	return user.print_user()
 
 def alert():
+	'''
+	This function handles the rest of the command as it pertains to an alert(s).
+	'''
 	# Parse the command line
 	parser = OptionParser()
 	parser.add_option('-i', '--id', dest='id', help='Alert id', type='int', default=0)
@@ -195,35 +147,25 @@ oncall.py alert status -t <team> -a
 oncall.py alert ack -i <id> -f <phone number>
 	'''
 
-	if (len(sys.argv) > 2):
+	if (len(sys.argv) > 2) and sys.argv[2] in ['status', 'ack']:
 		mode = sys.argv[2]
-		if mode in ['status', 'ack']:
-			#if mode == "create": o = alert_create(opts)
-			if mode == "status": o = alert_status(opts)
-			#if mode == "acked": o = alert_acked(opts)
-			#if mode == "all": o = alert_all(opts)
-			if mode == "ack": o = alert_ack(opts)
-			return o
-		else:
-			print user_usage
-			sys.exit(1)
+		#if mode == "create": o = alert_create(opts)
+		if mode == "status": o = alert_status(opts)
+		#if mode == "acked": o = alert_acked(opts)
+		#if mode == "all": o = alert_all(opts)
+		if mode == "ack": o = alert_ack(opts)
+		return o
 	else:
-		print user_usage
-		sys.exit(1)
+		return user_usage
 
 def alert_create(opts):
 	'''
-	Creating a new alert
+	Creating a new alert. Currently not in use.
 	'''
 	try:
-		if opts.subject == '':
-			print "Subject is not set (-s)"
-			sys.exit(1)
-		if opts.message == '':
-			print "Message is not set (-m)"
-			sys.exit(1)
-		if opts.team == '':
-			opts.team = "default"
+		if opts.subject == '': return "Subject is not set (-s)"
+		if opts.message == '': return "Message is not set (-m)"
+		if opts.team == '': opts.team = "default"
 		newalert = Alert.Alert()
 		newalert.subject = opts.subject
 		newalert.message = opts.message
@@ -255,7 +197,7 @@ def alert_status(opts):
 
 def alert_acked(opts):
 	'''
-	Printing out alerts acked
+	Printing out alerts acked. Currently not in use.
 	'''
 	alerts = Alert.acked()
 	if len(alerts) == 0: return "No acked alerts."
@@ -266,7 +208,7 @@ def alert_acked(opts):
 
 def alert_all(opts):
 	'''
-	Printing out all alerts.
+	Printing out all alerts. Currently not in use.
 	'''
 	alerts = Alert.all_alerts()
 	if len(alerts) == 0: return "No alerts."
@@ -280,25 +222,20 @@ def alert_ack(opts):
 	Acking a specific alert. Assumes the last alert to be sent to user if not given.
 	'''
 	user = None
-	if opts._from == '':
-		return "Must use option -f to go on/off call"
+	if opts._from == '': return "Must use option -f to go on/off call"
+	user = User.get_user_by_phone(opts._from)
+	if user == False: return "No user ends with that phone number (-f)"
+	output = "Acking alerts as %s...\n" % (user.name)
+	if opts.id > 0:
+		alert = Alert.Alert(opts.id)
+		alert.ack_alert(user)
+		return "Acknowledged"
+	if user.lastAlert > 0:
+		alert = Alert.Alert(user.lastAlert)
+		alert.ack_alert(user)
+		return "Acknowledged"
 	else:
-		user = User.get_user_by_phone(opts._from)
-		if user == False:
-			return "No user ends with that phone number (-f)"
-		else:
-			output = "Acking alerts as %s...\n" % (user.name)
-			if opts.id > 0:
-				alert = Alert.Alert(opts.id)
-				alert.ack_alert(user)
-				return "Acknowledged"
-			else:
-				if user.lastAlert > 0:
-					alert = Alert.Alert(user.lastAlert)
-					alert.ack_alert(user)
-					return "Acknowledged"
-				else:
-					return "No alert associated with your user"
+		return "No alert associated with your user"
 
 def oncall():
 	# Parse the command line
@@ -314,40 +251,30 @@ oncall.py oncall off -f <phone>
 oncall.py oncall status -t <team>
 	'''
 
-	if (len(sys.argv) > 2):
+	if (len(sys.argv) > 2) and sys.argv[2] in ['on', 'off', 'status']:
 		mode = sys.argv[2]
-		if mode in ['on', 'off', 'status']:
-			if mode == "off":
-				opts.state = 0
-			if mode == "on" or mode == "off": o = oncall_change(opts)
-			if mode == "status": o = oncall_status(opts)
-			return o
-		else:
-			print user_usage
-			sys.exit(1)
+		if mode == "off": opts.state = 0
+		if mode == "on" or mode == "off": o = oncall_change(opts)
+		if mode == "status": o = oncall_status(opts)
+		return o
 	else:
-		print user_usage
-		sys.exit(1)
+		return user_usage
 
 def oncall_change(opts):
 	'''
 	Change your own oncall status
 	'''
 	user = None
-	if opts._from == '':
-		return "Must use option -f to go on/off call"
+	if opts._from == '': return "Must use option -f to go on/off call"
+	user = User.get_user_by_phone(opts._from)
+	if user == False: return "No user ends with that phone number (-f)"
+	user.print_user()
+	user.state = opts.state
+	user.save_user()
+	if user.state > 0:
+		return "You, %s, are now on call" % user.name
 	else:
-		user = User.get_user_by_phone(opts._from)
-		if user == False:
-			return "No user ends with that phone number (-f)"
-		else:
-			user.print_user()
-			user.state = opts.state
-			user.save_user()
-			if user.state > 0:
-				return "Your now on call"
-			else:
-				return "You're now off call"
+		return "You, %s, are now off call" % user.name
 
 def oncall_status(opts):
 	'''
@@ -356,9 +283,9 @@ def oncall_status(opts):
 	users = User.on_call(opts.team)
 	oncall_users = []
 	for u in users:
-		if u.state > 0 and u.state != 9:
+		if u.state > 0 and u.state < 9:
 			oncall_users.append(u)
-	if len(oncall_users) == 0: return "No one is on call on that team (%s)" % (opts.team)
+	if len(oncall_users) == 0: return "No one is on call on the %s team." % (opts.team)
 	output = ''
 	for user in oncall_users:
 		output=output + "%s" % (user.print_user())
@@ -368,9 +295,10 @@ def run(args):
 	'''
 	This gets run from oncall-server to execute the Oncall CLI
 	'''
-	temp = sys.argv[0]
+	# convert argsuments into input params
 	sys.argv = args.split()
-	sys.argv.insert(0, 'null')
+	# gotta pad the arguments because usually sys.argv[0] is the python file name
+	sys.argv.insert(0, 'spacer')
 	return main()
 
 def main():
@@ -387,29 +315,24 @@ oncall.py oncall off -f <phone>
 oncall.py oncall status -t <team>
 '''
 
-	# converting all parameters to be lowercase to remove case sensitivity
+	# converting all parameters to be lowercase to remove any case sensitivity
 	sys.argv = map(lambda x:x.lower(),sys.argv)
-	#print sys.argv
-	if (len(sys.argv) > 1):
-		if sys.argv[1] in ['user', 'users', 'status', 'alert', 'alerts', 'ack', 'rotation', 'oncall']:
-			mode = sys.argv[1]
-			if mode == "user" or mode == 'users': o = user()
-			if mode == "alert" or mode == 'alerts': o = alert()
-			if mode == "status":
-				sys.argv.insert(1, "alert")
-				o = alert()
-			if mode == "ack": 
-				sys.argv.insert(1, "alert")
-				o = alert()
-			if mode == "oncall": o = oncall()
-			#if mode == "rotation": o = rotation()
-			logging.info(o)
-			return o
-		else:
-			print usage
-			sys.exit(0)
+
+	if (len(sys.argv) > 1) and sys.argv[1] in ['user', 'users', 'status', 'alert', 'alerts', 'ack', 'rotation', 'oncall']:
+		mode = sys.argv[1]
+		if mode == "user" or mode == 'users': o = user()
+		if mode == "alert" or mode == 'alerts': o = alert()
+		if mode == "status":
+			sys.argv.insert(1, "alert")
+			o = alert()
+		if mode == "ack": 
+			sys.argv.insert(1, "alert")
+			o = alert()
+		if mode == "oncall": o = oncall()
+		#if mode == "rotation": o = rotation()
+		logging.info("Oncall.py output: %s" % o)
+		return o
 	else:
-		print usage
-		sys.exit(0)
+		return usage
 
 if __name__ == "__main__": print main()

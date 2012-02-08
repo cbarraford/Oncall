@@ -1,18 +1,14 @@
 #!/usr/bin/env python
 
-import os,sys
+import logging
 import simplejson as json
 
-# add this file location to sys.path
-cmd_folder = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if cmd_folder not in sys.path:
-     sys.path.insert(0, cmd_folder)
-
 import mysql_layer as mysql
-import user as User
-import alert as Alert
-# load configuration settings (dict conf)
-from config import *
+import user_layer as User
+import alert_layer as Alert
+import util_layer as Util
+
+conf = Util.load_conf()
 
 class Api():
 	'''

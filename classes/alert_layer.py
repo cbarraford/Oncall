@@ -1,26 +1,20 @@
 #!/usr/bin/env python
 
-import os, sys
-import MySQLdb
-import datetime, math, logging, traceback
-
-# add this file location to sys.path
-cmd_folder = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if cmd_folder not in sys.path:
-     sys.path.insert(0, cmd_folder)
-     sys.path.insert(0, cmd_folder + "/classes")
+import logging
+import datetime
+import math
 
 import mysql_layer as mysql
 import twilio_layer as twilio
-import user as User
-# load configuration settings (dict conf)
-from config import *
+import user_layer as User
+import email_layer as Email
+import util_layer as Util
 
-logging.basicConfig(format='%(asctime)s - %(levelname)s: %(message)s', filename=conf['logdir'] + '/alerts.log',level=logging.DEBUG, datefmt='%m/%d/%Y %I:%M:%S %p')
+conf = Util.load_conf()
 
 def query(q_string):
 	'''
-	Query the db with the given string and return with an array of alert objects
+	Query the db with the given string and return with an array of alert objects.
 	'''
 	try:
 		_db = mysql.Database()
@@ -38,7 +32,7 @@ def query(q_string):
 
 def all_alerts():
 	'''
-	Get all alerts
+	Get all alerts.
 	'''
 	return query('''SELECT * FROM alerts''')
 
@@ -50,7 +44,7 @@ def status():
 
 def acked():
 	'''
-	Get the last 20 inactive alerts
+	Get the last 20 inactive alerts.
 	'''
 	return query('''SELECT * FROM alerts WHERE ack = 1 ORDER BY createDate LIMIT 20''')
 
@@ -68,6 +62,10 @@ def check_alerts():
 
 class Alert():
 	def __init__(self, id=0):
+		'''
+		Initialize the alert object.
+		If id is given, load alert with that id. Otherwise, create a new alert with default attributes.
+		'''
 		logging.debug("Initializing alert: %s" % id)
 		self.db = mysql.Database()
 		if id == 0:
@@ -85,7 +83,7 @@ class Alert():
 
 	def load_alert(self, id):
 		'''
-		load an alert with a specific id
+		Load an alert with a specific id.
 		'''
 		logging.debug("Loading alert: %s" % id)
 		try:
@@ -108,6 +106,9 @@ class Alert():
 			self.id = 0
 	
 	def convert_to_dict(self):
+		'''
+		Convert the alert from an object to a dictionary.
+		'''
 		logging.debug("Converting alert object to dictionary")
 		alert = {}
 		alert['id'] = self.id
@@ -124,7 +125,7 @@ class Alert():
 	
 	def save_alert(self):
 		'''
-		save the alert to the db
+		Save the alert to the db.
 		'''
 		logging.debug("Saving alert: %s" % self.id)
 		try:
@@ -135,7 +136,7 @@ class Alert():
 	
 	def ack_alert(self,user):
 		'''
-		ack the alert
+		Acknowledge the alert.
 		'''
 		logging.debug("Acknowledging alert: %s" % self.id)
 		try:
@@ -148,7 +149,10 @@ class Alert():
 			logging.error(e.__str__())
 			return False
 	
-	def send_alert(self, team=''):
+	def send_alert(self, team='default'):
+		'''
+		This method sends alerts to people who need to get one via sms, phone, or email.
+		'''
 		logging.debug("Sending alert: %s" % self.id)
 		try:
 			oncall_users_raw = User.on_call(team)
@@ -169,39 +173,37 @@ class Alert():
 				else:
 					# just grabbing the primary users (state == 1)
 					alert_users = oncall_users[0]
-				
+				# going through list of users (2-dimensional list) to send alerts to and send alerts
 				for au in alert_users:
 					for u in au:
 						if "call_failover" in conf:
 							if conf['call_failover'] == 0:
 								twilio.make_call(u, self)
 							else:
+								# check to see if enough tries have been made to this user to switch to calls instead of SMS
 								if int(math.ceil(self.tries/float(u.state))) > conf['call_failover']:
 									twilio.make_call(u, self)
 								else:
 									twilio.send_sms(u, self.id, self.subject + "\n" + self.message)
 						else:
 							twilio.send_sms(u, self.id, self.subject + "\n" + self.message)
-				
-				if "team_failover" in conf:
+				# check if enough tries have been made to send a team notification via email
+				if "team_failover" in conf and (conf['team_failover'] == 0 or conf['team_failover'] >= self.tries):
 					for t in team_users:
-						if conf['team_failover'] == 0:
-							pass #email team
-						else:
-							if conf['team_failover'] >= self.tries:
-								pass #email team
+						e = Email.Email(t,self)
+						e.send_alert_email()
 			else:
+				#oops no one is on call at the moment. Fall back to a team alert via email
 				logging.error("No one is currently on call")
 				for t in team_users:
-					pass # email team
-					
+					e = Email.Email(t,self)
+					e.send_alert_email()					
 		except Exception, e:
 			logging.error(e.__str__())
-			traceback.print_exc()
 	
 	def delete_alert(self):
 		'''
-		delete the alert form the db
+		Delete the alert form the db.
 		'''
 		logging.debug("Deleting alert: %s" % self.id)
 		try:
@@ -213,7 +215,8 @@ class Alert():
 		
 	def print_alert(self, SMS=False):
 		'''
-		print out the contents of an alert
+		Print out the contents of an alert.
+		the SMS param is to make the output SMS friendly or not
 		'''
 		if SMS == True:
 			output = "ack:%s\ttries:%s\tteam:%s\tsubject:%s\n" % (self.ack, self.tries, self.team, self.subject)

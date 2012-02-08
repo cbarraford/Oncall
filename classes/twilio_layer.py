@@ -1,25 +1,16 @@
 #!/usr/bin/env python
+# twilio layer
 
-# twilio layber
-
-import os, sys
+import logging
 
 from twilio.rest import TwilioRestClient
 from twilio import twiml
 
-# add this file location to sys.path
-cmd_folder = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if cmd_folder not in sys.path:
-     sys.path.insert(0, cmd_folder)
-     sys.path.insert(0, cmd_folder + "/classes")
+import user_layer as User
+import alert_layer as Alert
+import util_layer as Util
 
-# load configuration settings (dict conf)
-from config import *
-
-logging.basicConfig(format='%(asctime)s - %(levelname)s: %(message)s', filename=conf['logdir'] + '/server.log',level=logging.DEBUG, datefmt='%m/%d/%Y %I:%M:%S %p')
-
-import user as User
-import alert as Alert
+conf = Util.load_conf()
 
 def auth(user):
 	'''
@@ -40,7 +31,7 @@ def auth(user):
 
 def twil_phone_num(user):
 	'''
-	This method finds the appropriate twilio phone number for the user
+	This method finds the appropriate twilio phone number for the user.
 	'''
 	logging.debug("Getting associated twilio number with user/team")
 	if isinstance( conf['twilio_number'], str):
@@ -57,7 +48,7 @@ def twil_phone_num(user):
 
 def twil_reverse_phone_num(phonenum):
 	'''
-	This method finds a team associated with a phone number
+	This method finds a team associated with a phone number.
 	'''
 	logging.debug("Getting associated team with phone number")
 	team=''
@@ -70,7 +61,7 @@ def twil_reverse_phone_num(phonenum):
     
 def send_sms(user, alert_id, _message):
 	'''
-	This method sends a text message to a user
+	This method sends a text message to a user.
 	'''
 	logging.debug("Sending sms message to: %s, %s" % (user.name, _message))
 	user.lastAlert = alert_id
@@ -79,7 +70,7 @@ def send_sms(user, alert_id, _message):
 
 def make_call(user, alert):
 	'''
-	This method calls a user about an alert
+	This method calls a user about an alert.
 	'''
 	logging.debug("Calling user: %s" % user.name)
 	user.lastAlert = alert.id
@@ -88,13 +79,14 @@ def make_call(user, alert):
 	
 def validate_phone(user):
 	'''
-	This method attempts to authenticate a user's phone number with Twilio
+	This method attempts to authenticate a user's phone number with Twilio.
 	'''
 	logging.debug("Creating validation code for new phone number/user")
 	try:
 		response = auth(user).caller_ids.validate(user.phone)
 		return response["validation_code"]
 	except Exception, e:
+		print e
 		if e.status == 400:
 			return True
 		else:

@@ -1,25 +1,15 @@
 #!/usr/bin/env python
 
-import os, sys, logging
+import logging
 import MySQLdb
 import datetime
 
-# add this file location to sys.path
-cmd_folder = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if cmd_folder not in sys.path:
-     sys.path.insert(0, cmd_folder)
-     sys.path.insert(0, cmd_folder + "/classes")
-
 import mysql_layer as mysql
 import twilio_layer as twilio
-# load configuration settings (dict conf)
-from config import *
-
-logging.basicConfig(format='%(asctime)s - %(levelname)s: %(message)s', filename=conf['logdir'] + '/users.log',level=logging.DEBUG, datefmt='%m/%d/%Y %I:%M:%S %p')
 
 def query(q_string):
 	'''
-	Query the db with the given string and return with an array of user objects
+	Query the db with the given string and return with an array of user objects.
 	'''
 	try:
 		_db = mysql.Database()
@@ -36,22 +26,22 @@ def query(q_string):
 
 def all_users():
 	'''
-	Get all users from the db
+	Get all users from the db.
 	'''
 	return query('''SELECT * FROM users''')
 
 def on_call(team=''):
 	'''
-	Get a list of all users that are currently on call
+	Get a list of all users that are currently on call.
 	'''
 	if team == '':
-		return query('''SELECT * FROM users WHERE state > 0 and state <> 9 ORDER BY state''')
+		return query('''SELECT * FROM users WHERE state > 0 and state < 9 ORDER BY state''')
 	else:
-		return query('''SELECT * FROM users WHERE state > 0 and state <> 9 and team = "%s" ORDER BY state''' % team)
+		return query('''SELECT * FROM users WHERE state > 0 and state < 9 and team = "%s" ORDER BY state''' % team)
 
 def sort_by_state(user_list):
 	'''
-	This function sorts a 1 dimensional user list to a two dimensional user list, sorted by state
+	This function sorts a 1 dimensional user list into a two dimensional user list, sorted by user's state.
 	'''
 	oncall_users_sorted = []
 	# sorting on call users by state
@@ -86,6 +76,9 @@ def get_user_by_phone(phone):
 
 class User:
 	def __init__(self, id=0):
+		'''
+		This initializes a user object. If id is given, loads that user. If not, creates a new user object with default values.
+		'''
 		logging.debug("Initializing user: %s" % id)
 		self.db = mysql.Database()
 		if id == 0:
@@ -121,6 +114,9 @@ class User:
 			self.id = 0
 	
 	def convert_to_dict(self):
+		'''
+		This method converts a user object to a dictionary.
+		'''
 		logging.debug("Converting user object to dictionary")
 		user = {}
 		user['id'] = self.id
@@ -135,7 +131,7 @@ class User:
 	
 	def save_user(self):
 		'''
-		save the user to the db
+		Save the user to the db.
 		'''
 		logging.debug("Saving user: %s" % self.name)
 		try:
@@ -146,7 +142,7 @@ class User:
 			
 	def delete_user(self):
 		'''
-		delete the user form the db
+		Delete the user form the db.
 		'''
 		logging.debug("Deleting user: %s" % self.name)
 		try:
@@ -158,7 +154,7 @@ class User:
 			
 	def print_user(self, SMS=False):
 		'''
-		print out the contents of a user
+		Print out the contents of a user object. SMS variable makes output SMS friendly.
 		'''
 		if SMS == True:
 			output = "name:%s\tphone:%s\tteam:%s\tstate:%i\n" % (self.name, self.phone, self.team, self.state)

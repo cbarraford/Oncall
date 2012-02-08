@@ -2,33 +2,35 @@
 
 import web
 import os, sys
-import urllib, logging, time
+import urllib
+import logging
+import time
 from multiprocessing import Process
 
 # add this file location to sys.path
 cmd_folder = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if cmd_folder not in sys.path:
-     sys.path.insert(0, cmd_folder)
-     sys.path.insert(0, cmd_folder + "/classes")
+     sys.path.insert(-1, cmd_folder)
+     sys.path.insert(-1, cmd_folder + "/classes")
 
 import mysql_layer as mysql
 import twilio_layer as twilio
 import oncall
-import user as User
-import alert as Alert
+import user_layer as User
+import alert_layer as Alert
+import util_layer as Util
 
-# load configuration settings (dict conf)
-from config import *
-
-logging.basicConfig(format='%(asctime)s - %(levelname)s: %(message)s', filename=conf['logdir'] + '/server.log',level=logging.DEBUG, datefmt='%m/%d/%Y %I:%M:%S %p')
+conf = Util.load_conf()
+Util.init_logging("server")
 
 # set port and IP to listen for alerts
 # these are inhereited from the conf file
-sys.argv = [conf['listen_ip'],conf['port']] 
+sys.argv = [conf['listen_ip'],conf['port']]
 
 # debug mode
 web.config.debug = conf['server_debug']
 
+#load valid urls to listen to for http calls
 urls = (
     '/alert/(.+)', 'alert',
     '/sms/(.+)', 'sms',
@@ -58,6 +60,7 @@ class alert:
 		else:
 			d.team="default"
 		try:
+			#check for security password if configured to do so
 			goAhead = True
 			if "security_passwd" in conf:
 				if d.passwd == conf['security_passwd']:
@@ -66,6 +69,7 @@ class alert:
 					goAhead = False
 			if goAhead == True:
 				isNewAlert = True
+				# check to see if this alert is a new one
 				for a in Alert.fresh_alerts():
 					if a.subject == d.subject and a.message == d.message and a.team == d.team: isNewAlert = False
 				if isNewAlert == True:
@@ -94,6 +98,7 @@ class sms:
 		web.header('Content-Type', 'text/xml')
 		r = twilio.twiml.Response()
 		user = User.get_user_by_phone(d.From)
+		# make sure person sending the text is an authorized user of Oncall
 		if user == False:
 			logging.error("Unauthorized access attempt via SMS by %s\n%s" % (d.From, d))
 			r.sms("You are not a authorized user")
@@ -110,8 +115,9 @@ class call:
 		logging.info("Receiving phone call\n%s" % (d))
 		web.header('Content-Type', 'text/xml')
 		r = twilio.twiml.Response()
-		# the message to say when timeout occurs
+		# the message to say when a timeout occurs
 		timeout_msg = "Sorry, didn't get any input from you. Goodbye."
+		# check if this call was initialized by sending an alert
 		if name == "alert":
 			# the digit options to press
 			digitOpts = '''
@@ -120,7 +126,7 @@ Press 2 to acknowledge this alert.
 '''
 			receiver = User.get_user_by_phone(d.To)
 			alert = Alert.Alert(d.alert_id)
-			alert.print_alert()
+			# check if this is the first interaction for this call session
 			if d.init.lower() == "true":
 				with r.gather(action="%s:%s/call/alert?alert_id=%s&init=false" % (conf['server_address'],conf['port'],alert.id), timeout=conf['call_timeout'], method="POST", numDigits="1") as g:
 					g.say('''Hello %s, a message from Oncall. An alert has been issued with subject "%s". %s.''' % (receiver.name, alert.subject, digitOpts))
@@ -145,23 +151,30 @@ Press 2 to acknowledge this alert.
 					r.say("Sorry, didn't understand the digits you entered. Goodbye")
 		else:
 			requester = User.get_user_by_phone(d.From)
+			# get the team that is associate with this phone number the user called
 			team = twilio.twil_reverse_phone_num(d.To)
-			# if caller is not a oncall user or they are, but calling a different team then they are
+			# if caller is not a oncall user or they are, but calling a different team then they are in
 			if requester == False or requester.team != team:
 				if team == '':
 					r.say("Sorry, The phone number you called is not associated with any team. Please contact you system administrator for help.")
 				else:
+					# get the first user on call and forward the call to them
 					oncall_users = User.sort_by_state(User.on_call(team))
 					if len(oncall_users) > 0:
+						foundOncallUser = False
 						for userlist in oncall_users:
 							for u in userlist:
 								r.say("Calling %s." % u.name)
 								r.dial(number=u.phone)
+								foundOncallUser = True
+								break
+							if foundOncalluser == True: break
 					else:
 						r.say("Sorry, currently there is no one on call for %s. Please try again later." % team)
 			else:
-				# the caller is calling the same team phone number as the team they are on
-				if d.Digits == 0:
+				# the caller is calling the same team phone number as the team that they are on
+				# check if d.Digits is the default value (meaning, either the caller hasn't pushed a button and this is the beginning of the call, or they hit 0 to start over
+				if int(d.Digits) == 0:
 					if d.init.lower() == "true":
 						if requester.state > 0 and requester.state < 9: 
 							oncall_status = "You are currently on call in spot %s" % (requester.state)
@@ -180,14 +193,15 @@ Press 2 to acknowledge this alert.
 							g.say('''Press 1 if you want to hear the present status of alerts. Press 2 to acknowledge the last alert sent to you. Press 3 to conference call everyone on call into this call.''')
 					r.say(timeout_msg)
 				elif int(d.Digits) == 1:
-					print "getting status"
+					# getting the status of alerts
 					r.say(oncall.run("alert status -f " + requester.phone))
 					r.redirect(url="%s:%s/call/event?init=false" % (conf['server_address'],conf['port']))
 				elif int(d.Digits) == 2:
-					print "acking"
+					# acking the last alert sent to the user calling
 					r.say(oncall.run("alert ack -f " + requester.phone))
 					r.redirect(url="%s:%s/call/event?init=false" % (conf['server_address'],conf['port']))
 				elif int(d.Digits) == 3:
+					# calling the other users on call
 					oncall_users_raw = User.on_call(requester.team)
 					for user in oncall_users_raw:
 						if user.phone == requester.phone: continue
@@ -199,7 +213,7 @@ Press 2 to acknowledge this alert.
 
 def check_alerts():
 	'''
-	This function runs in an infinite loop to find any unacked alerts that need an alert to be sent out
+	This function runs in an infinite loop to find any unacked alerts that need an alert to be sent out.
 	'''
 	foobar = True
 	while foobar == True:
