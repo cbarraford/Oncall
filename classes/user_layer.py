@@ -157,7 +157,7 @@ class User:
 		Print out the contents of a user object. SMS variable makes output SMS friendly.
 		'''
 		if SMS == True:
-			output = "name:%s\tphone:%s\tteam:%s\tstate:%i\n" % (self.name, self.phone, self.team, self.state)
+			output = "name:%s|phone: %s |team:%s|state:%i\n" % (self.name, self.phone, self.team, self.state)
 		else:
 			output = "id:%i\tname:%s\tphone:%s\temail:%s\tteam:%s\tstate:%i\n" % (self.id, self.name, self.phone, self.email, self.team, self.state)
 		logging.debug("Printing user: %s" % output)

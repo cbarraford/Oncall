@@ -219,7 +219,7 @@ class Alert():
 		the SMS param is to make the output SMS friendly or not
 		'''
 		if SMS == True:
-			output = "ack:%s\ttries:%s\tteam:%s\tsubject:%s\n" % (self.ack, self.tries, self.team, self.subject)
+			output = "ack:%s|tries:%s|team:%s|subject:%s\n" % (self.ack, self.tries, self.team, self.subject)
 		else:
 			output = "id:%i\tack:%s\tacktime:%s\ttries:%s\tteam:%s\tsubject:%s\tmessage:%s\n" % (self.id, self.ack, self.acktime, self.tries, self.team, self.subject, self.message)
 		logging.debug("Printing alert: %s" % self.id)

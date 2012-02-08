@@ -36,6 +36,7 @@ def user():
 	parser.add_option('-s', '--state', dest='state', help='State (0 = in rotation, 3 = off rotation, 9 = global entity)', type='int', default=100)
 	parser.add_option('-d', '--delete', dest='delete', help='Delete result of user list query', action="store_true", default=False)
 	parser.add_option('-f', '--from', dest='_from', help='The phone number of the person using oncall (for sms identication purposes)', type='string', default='')
+	parser.add_option('-m', '--mobile', dest='mobile', help='Flag as mobile device, format output for it.', action="store_true", default=False)
 	(opts, args) = parser.parse_args()
 	
 	user_usage='''
@@ -80,13 +81,13 @@ def user_create(opts):
 			valid_code = twilio.validate_phone(newuser)
 			if valid_code == False:
 				logging.error("Unable to get a validation code for new phone number")
-				return newuser.print_user() + "\nUnable to get a validation code. Please verify new phone number through Twilio website"
+				return newuser.print_user(opts.mobile) + "\nUnable to get a validation code. Please verify new phone number through Twilio website"
 			elif valid_code == True:
-				return newuser.print_user() + "\nPhone has already been verified with Twilio"
+				return newuser.print_user(opts.mobile) + "\nPhone has already been verified with Twilio"
 			else:
-				return newuser.print_user() + "\nValidation Code: %s" % (valid_code)
+				return newuser.print_user(opts.mobile) + "\nValidation Code: %s" % (valid_code)
 		else:
-			return newuser.print_user()
+			return newuser.print_user(opts.mobile)
 	except Exception, e:
 		logging.error("Failed to create new user: %s" % (e))
 		return "Failed to create user: %s" % (e.__str__())
@@ -115,7 +116,7 @@ def user_list(opts):
 	else:
 		output = ''
 	for u in users:
-		output=output + "%s" % (u.print_user())
+		output=output + "%s" % (u.print_user(opts.mobile))
 		if opts.delete == True: u.delete_user()
 	return output
 
@@ -131,7 +132,7 @@ def user_edit(opts):
 	if opts.team != '':	user.team = opts.team
 	if opts.state != '' and opts.state != 100: user.state = opts.state
 	user.save_user()
-	return user.print_user()
+	return user.print_user(opts.mobile)
 
 def alert():
 	'''
@@ -143,6 +144,7 @@ def alert():
 	parser.add_option('-t', '--team', dest='team', help='The team you want to send the message to', type='string', default='default')
 	parser.add_option('-f', '--from', dest='_from', help='The phone number of the person using oncall (for sms identication purposes)', type='string', default='')
 	parser.add_option('-a', '--ack', dest='ack', help='Ack the results of alert list query', action="store_true", default=False)
+	parser.add_option('-m', '--mobile', dest='mobile', help='Flag as mobile device, format output for it.', action="store_true", default=False)
 	(opts, args) = parser.parse_args()
 	
 	user_usage='''
@@ -174,7 +176,7 @@ def alert_create(opts):
 		newalert.message = opts.message
 		if opts.team != '': newalert.team = opts.team
 		newalert.save_alert()
-		return newalert.print_alert()
+		return newalert.print_alert(opts.mobile)
 	except Exception, e:
 		return "Failed to create alert: %s" % (e.__str__())
 
@@ -194,7 +196,7 @@ def alert_status(opts):
 	else:
 		output = ''
 	for a in alerts:
-		output=output + "%s" % (a.print_alert())
+		output=output + "%s" % (a.print_alert(opts.mobile))
 		if user != None: a.ack_alert(user)
 	return output
 
@@ -206,7 +208,7 @@ def alert_acked(opts):
 	if len(alerts) == 0: return "No acked alerts."
 	output = ''
 	for a in alerts:
-		output=output + "%s" % (a.print_alert())
+		output=output + "%s" % (a.print_alert(opts.mobile))
 	return output
 
 def alert_all(opts):
@@ -217,7 +219,7 @@ def alert_all(opts):
 	if len(alerts) == 0: return "No alerts."
 	output = ''
 	for a in alerts:
-		output=output + "%s" % (a.print_alert())
+		output=output + "%s" % (a.print_alert(opts.mobile))
 	return output
 
 def alert_ack(opts):
@@ -246,6 +248,7 @@ def oncall():
 	parser.add_option('-s', '--state', dest='state', help='On call stage (1 = primary, 2= secondary, etc)', type='int', default=1)
 	parser.add_option('-t', '--team', dest='team', help='A team name', type='string', default='default')
 	parser.add_option('-f', '--from', dest='_from', help='The phone number of the person using oncall (for sms identication purposes)', type='string', default='')
+	parser.add_option('-m', '--mobile', dest='mobile', help='Flag as mobile device, format output for it.', action="store_true", default=False)
 	(opts, args) = parser.parse_args()
 	
 	user_usage='''
@@ -271,7 +274,7 @@ def oncall_change(opts):
 	if opts._from == '': return "Must use option -f to go on/off call"
 	user = User.get_user_by_phone(opts._from)
 	if user == False: return "No user ends with that phone number (-f)"
-	user.print_user()
+	user.print_user(opts.mobile)
 	user.state = opts.state
 	user.save_user()
 	if user.state > 0:
@@ -291,7 +294,7 @@ def oncall_status(opts):
 	if len(oncall_users) == 0: return "No one is on call on the %s team." % (opts.team)
 	output = ''
 	for user in oncall_users:
-		output=output + "%s" % (user.print_user())
+		output=output + "%s" % (user.print_user(opts.mobile))
 	return output
 
 def run(args):

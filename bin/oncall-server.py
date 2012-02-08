@@ -78,7 +78,6 @@ class alert:
 					newalert.subject = d.subject
 					newalert.message = d.message
 					newalert.team = d.team
-					newalert.print_alert()
 					newalert.send_alert()
 					return "OK:\n" + newalert.print_alert()
 			else:
@@ -103,7 +102,9 @@ class sms:
 			logging.error("Unauthorized access attempt via SMS by %s\n%s" % (d.From, d))
 			r.sms("You are not a authorized user")
 		else:
-			r.sms(oncall.run(d.Body + " -f " + d.From))
+			# split the output into 160 character segments
+			for text_segment in twilio.split_sms(oncall.run(d.Body + " -m -f " + d.From)):
+				r.sms(text_segment)
 		return r
 
 class call:

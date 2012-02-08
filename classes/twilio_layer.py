@@ -58,6 +58,20 @@ def twil_reverse_phone_num(phonenum):
 			break
 	if team == '': team = 'default'
 	return team
+
+def split_sms(sms):
+	'''
+	This function splits an sms messages into 160 character list, so it can send parts of message in 160 char segments.
+	'''
+	if len(sms) > 160:
+		output = []
+		while len(sms) > 160:
+			output.append(sms[:160])
+			sms = sms[160:]
+		if len(sms) > 0: output.append(sms)
+		return output
+	else:
+		return [sms]
     
 def send_sms(user, alert_id, _message):
 	'''
@@ -66,7 +80,10 @@ def send_sms(user, alert_id, _message):
 	logging.debug("Sending sms message to: %s, %s" % (user.name, _message))
 	user.lastAlert = alert_id
 	user.save_user()
-	return auth(user).sms.messages.create(to=user.phone, from_=twil_phone_num(user), body=_message)
+	myauth = auth(user)
+	from_phone = twil_phone_num(user)
+	for text_segment in split_sms(_message):
+		myauth.sms.messages.create(to=user.phone, from_=from_phone, body=text_segment)
 
 def make_call(user, alert):
 	'''
@@ -86,7 +103,6 @@ def validate_phone(user):
 		response = auth(user).caller_ids.validate(user.phone)
 		return response["validation_code"]
 	except Exception, e:
-		print e
 		if e.status == 400:
 			return True
 		else:
