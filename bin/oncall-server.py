@@ -32,7 +32,7 @@ web.config.debug = conf['server_debug']
 
 #load valid urls to listen to for http calls
 urls = (
-    '/alert/(.+)', 'alert',
+#   '/alert/(.+)', 'alert',
     '/sms/(.+)', 'sms',
     '/call/(.+)', 'call',
 )
